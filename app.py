@@ -4,31 +4,36 @@ import numpy as np
 import joblib
 import os
 
-st.set_page_config(page_title="Churn Prediction App", layout="wide")
+# =========================
+# PAGE CONFIG
+# =========================
+st.set_page_config(page_title="Customer Churn Prediction", layout="wide")
 
 st.title("📊 Customer Churn Prediction System")
 
+
 # =========================
-# SAFE LOAD FUNCTION
+# LOAD MODELS SAFELY
 # =========================
-def load_model(file):
-    if os.path.exists(file):
-        return joblib.load(file)
+def load_file(file_name):
+    if os.path.exists(file_name):
+        return joblib.load(file_name)
     else:
         return None
 
 
-model = load_model("best_model.pkl")
-scaler = load_model("scaler.pkl")
-encoders = load_model("encoders.pkl")
+model = load_file("best_model.pkl")
+scaler = load_file("scaler.pkl")
+encoders = load_file("encoders.pkl")
 
 
 # =========================
-# IF FILES NOT FOUND
+# CHECK FILES
 # =========================
 if model is None or scaler is None or encoders is None:
     st.error("❌ Model files missing in deployment!")
-    st.info("👉 Please upload: best_model.pkl, scaler.pkl, encoders.pkl to GitHub repo")
+    st.warning("👉 Please upload these files to GitHub repo:")
+    st.code("best_model.pkl\nscaler.pkl\nencoders.pkl")
     st.stop()
 
 
@@ -51,7 +56,7 @@ def preprocess(df):
 # =========================
 st.header("🔹 Single Customer Prediction")
 
-with st.form("form"):
+with st.form("single_form"):
 
     gender = st.selectbox("Gender", ["Male", "Female"])
     senior = st.selectbox("Senior Citizen", [0, 1])
@@ -82,12 +87,12 @@ with st.form("form"):
     monthly = st.number_input("Monthly Charges", 0.0, 500.0, 70.0)
     total = st.number_input("Total Charges", 0.0, 10000.0, 1000.0)
 
-    submit = st.form_submit_button("Predict")
+    submit = st.form_submit_button("🚀 Predict")
 
 
 if submit:
 
-    data = pd.DataFrame([[
+    row = pd.DataFrame([[
         gender, senior, partner, dependents, tenure,
         phone, multiple, internet,
         security, backup, device, tech,
@@ -102,7 +107,7 @@ if submit:
         "PaymentMethod","MonthlyCharges","TotalCharges"
     ])
 
-    X = preprocess(data)
+    X = preprocess(row)
 
     pred = model.predict(X)[0]
 
@@ -115,11 +120,11 @@ if submit:
 # =========================
 # CSV UPLOAD
 # =========================
-st.header("📂 Bulk Prediction")
+st.header("📂 Bulk Prediction (CSV Upload)")
 
-file = st.file_uploader("Upload CSV", type=["csv"])
+file = st.file_uploader("Upload CSV file", type=["csv"])
 
-if file:
+if file is not None:
 
     df = pd.read_csv(file)
 
@@ -136,13 +141,13 @@ if file:
         lambda x: "WILL CHURN ❌" if x == 1 else "WILL NOT CHURN ✅"
     )
 
-    st.success("Done!")
+    st.success("Prediction Completed!")
 
     st.dataframe(df)
 
     st.download_button(
         "⬇ Download Results",
         df.to_csv(index=False),
-        "results.csv",
+        "churn_predictions.csv",
         "text/csv"
     )
