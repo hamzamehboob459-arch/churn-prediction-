@@ -1,5 +1,5 @@
 
-https://0e1a1e609b7c255867.gradio.live/
+https://fe31b6ceb68e6f1837.gradio.live/
 # Churn Prediction
 
 ## Project Overview
