@@ -1,37 +1,12 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-import joblib
+import requests
 
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB
+st.set_page_config(page_title="Churn Prediction App")
 
-# ======================
-# LOAD MODELS
-# ======================
-model = joblib.load("best_model.pkl")
-scaler = joblib.load("scaler.pkl")
-encoders = joblib.load("encoders.pkl")
+st.title("📊 Customer Churn Prediction (AI System)")
 
-try:
-    kmeans = joblib.load("kmeans.pkl")
-except:
-    kmeans = None
+API_URL = "http://127.0.0.1:8000/predict"
 
-
-# ======================
-# UI DESIGN
-# ======================
-st.set_page_config(page_title="Customer Churn App", layout="wide")
-
-st.title("📊 Customer Churn Prediction System")
-st.markdown("### ML Models: Random Forest + KNN + Naive Bayes + Clustering")
-
-
-# ======================
-# INPUT FORM
-# ======================
 gender = st.selectbox("Gender", ["Male", "Female"])
 senior = st.selectbox("Senior Citizen", [0, 1])
 partner = st.selectbox("Partner", ["Yes", "No"])
@@ -46,6 +21,7 @@ security = st.selectbox("Online Security", ["Yes", "No"])
 backup = st.selectbox("Online Backup", ["Yes", "No"])
 device = st.selectbox("Device Protection", ["Yes", "No"])
 tech = st.selectbox("Tech Support", ["Yes", "No"])
+
 tv = st.selectbox("Streaming TV", ["Yes", "No"])
 movies = st.selectbox("Streaming Movies", ["Yes", "No"])
 
@@ -61,50 +37,32 @@ monthly = st.number_input("Monthly Charges", 0.0, 500.0, 70.0)
 total = st.number_input("Total Charges", 0.0, 10000.0, 1000.0)
 
 
-# ======================
-# PREDICTION BUTTON
-# ======================
-if st.button("🚀 Predict Churn"):
+if st.button("Predict"):
+    data = {
+        "gender": gender,
+        "SeniorCitizen": senior,
+        "Partner": partner,
+        "Dependents": dependents,
+        "tenure": tenure,
+        "PhoneService": phone,
+        "MultipleLines": multiple,
+        "InternetService": internet,
+        "OnlineSecurity": security,
+        "OnlineBackup": backup,
+        "DeviceProtection": device,
+        "TechSupport": tech,
+        "StreamingTV": tv,
+        "StreamingMovies": movies,
+        "Contract": contract,
+        "PaperlessBilling": paperless,
+        "PaymentMethod": payment,
+        "MonthlyCharges": monthly,
+        "TotalCharges": total
+    }
 
-    data = pd.DataFrame([[
-        gender, senior, partner, dependents, tenure,
-        phone, multiple, internet,
-        security, backup, device, tech, tv, movies,
-        contract, paperless, payment,
-        monthly, total
-    ]], columns=[
-        "gender","SeniorCitizen","Partner","Dependents","tenure",
-        "PhoneService","MultipleLines","InternetService",
-        "OnlineSecurity","OnlineBackup","DeviceProtection","TechSupport",
-        "StreamingTV","StreamingMovies","Contract","PaperlessBilling",
-        "PaymentMethod","MonthlyCharges","TotalCharges"
-    ])
+    res = requests.post(API_URL, json=data)
 
-    # Encode categorical
-    for col in data.columns:
-        if col in encoders:
-            data[col] = encoders[col].transform(data[col])
-
-    # Scale
-    scaled = scaler.transform(data)
-
-    # Prediction
-    pred = model.predict(scaled)[0]
-
-    # Extra models (for requirement)
-    knn = KNeighborsClassifier().fit(scaled, [pred])
-    nb = GaussianNB().fit(scaled, [pred])
-    dt = DecisionTreeClassifier().fit(scaled, [pred])
-
-    # Cluster
-    cluster = None
-    if kmeans:
-        cluster = int(kmeans.predict(scaled)[0])
-
-    # Output
-    if pred == 1:
-        st.error("❌ CUSTOMER WILL CHURN")
+    if res.status_code == 200:
+        st.success(res.json()["result"])
     else:
-        st.success("✅ CUSTOMER WILL NOT CHURN")
-
-    st.info(f"Cluster Group: {cluster}")
+        st.error("API Error")
