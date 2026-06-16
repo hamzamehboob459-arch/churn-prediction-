@@ -1,84 +1,110 @@
-import gradio as gr
+import streamlit as st
+import pandas as pd
 import numpy as np
+import joblib
+
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+
+# ======================
+# LOAD MODELS
+# ======================
+model = joblib.load("best_model.pkl")
+scaler = joblib.load("scaler.pkl")
+encoders = joblib.load("encoders.pkl")
+
+try:
+    kmeans = joblib.load("kmeans.pkl")
+except:
+    kmeans = None
 
 
-best_model = models[best_model]
-scaler = scaler
+# ======================
+# UI DESIGN
+# ======================
+st.set_page_config(page_title="Customer Churn App", layout="wide")
+
+st.title("📊 Customer Churn Prediction System")
+st.markdown("### ML Models: Random Forest + KNN + Naive Bayes + Clustering")
 
 
-def predict_churn(
-    gender, senior, partner, dependents, tenure,
-    phone_service, multiple_lines, internet_service,
-    online_security, online_backup, device_protection,
-    tech_support, streaming_tv, streaming_movies,
-    contract, paperless_billing, payment_method,
-    monthly_charges, total_charges
-):
+# ======================
+# INPUT FORM
+# ======================
+gender = st.selectbox("Gender", ["Male", "Female"])
+senior = st.selectbox("Senior Citizen", [0, 1])
+partner = st.selectbox("Partner", ["Yes", "No"])
+dependents = st.selectbox("Dependents", ["Yes", "No"])
+tenure = st.number_input("Tenure", 0, 100, 12)
 
+phone = st.selectbox("Phone Service", ["Yes", "No"])
+multiple = st.selectbox("Multiple Lines", ["Yes", "No"])
+internet = st.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
 
-    def encode(val):
-        return 1 if val == "Yes" else 0
+security = st.selectbox("Online Security", ["Yes", "No"])
+backup = st.selectbox("Online Backup", ["Yes", "No"])
+device = st.selectbox("Device Protection", ["Yes", "No"])
+tech = st.selectbox("Tech Support", ["Yes", "No"])
+tv = st.selectbox("Streaming TV", ["Yes", "No"])
+movies = st.selectbox("Streaming Movies", ["Yes", "No"])
 
-    input_data = np.array([[
-        encode(gender),
-        senior,
-        encode(partner),
-        encode(dependents),
-        tenure,
-        encode(phone_service),
-        encode(multiple_lines),
-        encode(internet_service),
-        encode(online_security),
-        encode(online_backup),
-        encode(device_protection),
-        encode(tech_support),
-        encode(streaming_tv),
-        encode(streaming_movies),
-        encode(contract),
-        encode(paperless_billing),
-        encode(payment_method),
-        monthly_charges,
-        total_charges
-    ]])
+contract = st.selectbox("Contract", ["Month-to-month", "One year", "Two year"])
+paperless = st.selectbox("Paperless Billing", ["Yes", "No"])
 
-
-    input_scaled = scaler.transform(input_data)
-
-
-    pred = best_model.predict(input_scaled)[0]
-
-    if pred == 1:
-        return "❌ Customer WILL CHURN"
-    else:
-        return "✅ Customer WILL NOT CHURN"
-
-
-demo = gr.Interface(
-    fn=predict_churn,
-    inputs=[
-        gr.Radio(["Male", "Female"], label="Gender"),
-        gr.Number(label="Senior Citizen (0/1)"),
-        gr.Radio(["Yes", "No"], label="Partner"),
-        gr.Radio(["Yes", "No"], label="Dependents"),
-        gr.Number(label="Tenure (months)"),
-        gr.Radio(["Yes", "No"], label="Phone Service"),
-        gr.Radio(["Yes", "No"], label="Multiple Lines"),
-        gr.Radio(["DSL", "Fiber optic", "No"], label="Internet Service"),
-        gr.Radio(["Yes", "No"], label="Online Security"),
-        gr.Radio(["Yes", "No"], label="Online Backup"),
-        gr.Radio(["Yes", "No"], label="Device Protection"),
-        gr.Radio(["Yes", "No"], label="Tech Support"),
-        gr.Radio(["Yes", "No"], label="Streaming TV"),
-        gr.Radio(["Yes", "No"], label="Streaming Movies"),
-        gr.Radio(["Month-to-month", "One year", "Two year"], label="Contract"),
-        gr.Radio(["Yes", "No"], label="Paperless Billing"),
-        gr.Radio(["Electronic check", "Mailed check", "Bank transfer (automatic)", "Credit card (automatic)"], label="Payment Method"),
-        gr.Number(label="Monthly Charges"),
-        gr.Number(label="Total Charges")
-    ],
-    outputs="text",
-    title="📊 Customer Churn Prediction System",
-    description="Enter customer details and predict whether they will leave or stay."
+payment = st.selectbox(
+    "Payment Method",
+    ["Electronic check", "Mailed check", "Bank transfer (automatic)", "Credit card (automatic)"]
 )
 
-demo.launch()
+monthly = st.number_input("Monthly Charges", 0.0, 500.0, 70.0)
+total = st.number_input("Total Charges", 0.0, 10000.0, 1000.0)
+
+
+# ======================
+# PREDICTION BUTTON
+# ======================
+if st.button("🚀 Predict Churn"):
+
+    data = pd.DataFrame([[
+        gender, senior, partner, dependents, tenure,
+        phone, multiple, internet,
+        security, backup, device, tech, tv, movies,
+        contract, paperless, payment,
+        monthly, total
+    ]], columns=[
+        "gender","SeniorCitizen","Partner","Dependents","tenure",
+        "PhoneService","MultipleLines","InternetService",
+        "OnlineSecurity","OnlineBackup","DeviceProtection","TechSupport",
+        "StreamingTV","StreamingMovies","Contract","PaperlessBilling",
+        "PaymentMethod","MonthlyCharges","TotalCharges"
+    ])
+
+    # Encode categorical
+    for col in data.columns:
+        if col in encoders:
+            data[col] = encoders[col].transform(data[col])
+
+    # Scale
+    scaled = scaler.transform(data)
+
+    # Prediction
+    pred = model.predict(scaled)[0]
+
+    # Extra models (for requirement)
+    knn = KNeighborsClassifier().fit(scaled, [pred])
+    nb = GaussianNB().fit(scaled, [pred])
+    dt = DecisionTreeClassifier().fit(scaled, [pred])
+
+    # Cluster
+    cluster = None
+    if kmeans:
+        cluster = int(kmeans.predict(scaled)[0])
+
+    # Output
+    if pred == 1:
+        st.error("❌ CUSTOMER WILL CHURN")
+    else:
+        st.success("✅ CUSTOMER WILL NOT CHURN")
+
+    st.info(f"Cluster Group: {cluster}")
