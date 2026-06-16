@@ -1,39 +1,51 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import joblib
+import os
 
-# ======================
-# LOAD MODEL FILES
-# ======================
-model = joblib.load("best_model.pkl")
-scaler = joblib.load("scaler.pkl")
-encoders = joblib.load("encoders.pkl")
+# =========================
+# SAFE FILE LOADING
+# =========================
+def load_file(file_name):
+    if os.path.exists(file_name):
+        return joblib.load(file_name)
+    else:
+        st.error(f"❌ Missing file: {file_name}")
+        st.stop()
 
-st.set_page_config(page_title="Churn Prediction App", layout="wide")
+model = load_file("best_model.pkl")
+scaler = load_file("scaler.pkl")
+encoders = load_file("encoders.pkl")
+
+st.set_page_config(page_title="Customer Churn App", layout="wide")
 
 st.title("📊 Customer Churn Prediction System")
-st.markdown("Upload CSV OR Predict single customer")
+st.write("Upload CSV OR Predict single customer")
 
 
-# ======================
-# ENCODING FUNCTION
-# ======================
+# =========================
+# PREPROCESS FUNCTION
+# =========================
 def preprocess(df):
 
+    df = df.copy()
+
+    # encoding
     for col in df.columns:
         if col in encoders:
             df[col] = encoders[col].transform(df[col])
 
-    df_scaled = scaler.transform(df)
-    return df_scaled
+    # scaling
+    return scaler.transform(df)
 
 
-# ======================
-# SINGLE CUSTOMER FORM
-# ======================
+# =========================
+# SINGLE CUSTOMER
+# =========================
 st.header("🔹 Single Customer Prediction")
 
-with st.form("single_form"):
+with st.form("single"):
 
     gender = st.selectbox("Gender", ["Male", "Female"])
     senior = st.selectbox("Senior Citizen", [0, 1])
@@ -71,7 +83,8 @@ if submit:
     row = pd.DataFrame([[
         gender, senior, partner, dependents, tenure,
         phone, multiple, internet,
-        security, backup, device, tech, tv, movies,
+        security, backup, device, tech,
+        tv, movies,
         contract, paperless, payment,
         monthly, total
     ]], columns=[
@@ -82,20 +95,20 @@ if submit:
         "PaymentMethod","MonthlyCharges","TotalCharges"
     ])
 
-    processed = preprocess(row)
+    X = preprocess(row)
 
-    pred = model.predict(processed)[0]
+    pred = model.predict(X)[0]
 
     if pred == 1:
-        st.error("❌ Customer WILL CHURN")
+        st.error("❌ CUSTOMER WILL CHURN")
     else:
-        st.success("✅ Customer WILL NOT CHURN")
+        st.success("✅ CUSTOMER WILL NOT CHURN")
 
 
-# ======================
-# CSV UPLOAD SECTION
-# ======================
-st.header("📂 Bulk Prediction (CSV Upload)")
+# =========================
+# CSV UPLOAD
+# =========================
+st.header("📂 CSV Bulk Prediction")
 
 file = st.file_uploader("Upload CSV file", type=["csv"])
 
@@ -103,29 +116,27 @@ if file is not None:
 
     df = pd.read_csv(file)
 
-    st.write("📄 Uploaded Data Preview:")
+    st.write("Preview:")
     st.dataframe(df.head())
 
-    # Preprocess
-    processed = preprocess(df)
+    X = preprocess(df)
 
-    predictions = model.predict(processed)
+    predictions = model.predict(X)
 
     df["Prediction"] = predictions
-
     df["Result"] = df["Prediction"].apply(
         lambda x: "WILL CHURN ❌" if x == 1 else "WILL NOT CHURN ✅"
     )
 
-    st.success("Prediction Completed!")
+    st.success("Prediction Done!")
 
     st.dataframe(df)
 
-    csv = df.to_csv(index=False).encode('utf-8')
+    csv = df.to_csv(index=False).encode("utf-8")
 
     st.download_button(
         "⬇ Download Results",
         csv,
-        "churn_predictions.csv",
+        "churn_results.csv",
         "text/csv"
     )
