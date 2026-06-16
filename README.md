@@ -1,4 +1,4 @@
-# churn-prediction-Agar aapke project ka naam **Churn Prediction** hai aur aap GitHub repository ke **README.md** mein information likhna chahte hain, to aap yeh template use kar sakte hain:
+# churn-prediction-
 
 # Churn Prediction
 
